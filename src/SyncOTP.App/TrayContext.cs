@@ -101,6 +101,8 @@ public sealed class TrayContext : ApplicationContext
         _menu.Items.Add(new ToolStripSeparator());
         _menu.Items.Add(new ToolStripMenuItem("Exit", null, (_, _) => ExitApp()));
 
+        _menu.Opening += (_, _) => RefreshHistoryMenu();
+
         RefreshHistoryMenu();
     }
 
