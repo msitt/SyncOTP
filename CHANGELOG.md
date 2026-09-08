@@ -6,6 +6,8 @@ All notable changes to SyncOTP are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-09-07
+
 ### Added
 
 - Initial release: tray app that watches an ntfy topic, extracts SMS verification codes, and copies
