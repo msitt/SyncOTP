@@ -8,6 +8,21 @@ already there.
 
 Any ntfy server works: the public one at `ntfy.sh`, or your own.
 
+## Releases
+
+Prebuilt binaries are on the [Releases page](../../releases). Each release has two downloads:
+
+- **`SyncOTP-<version>-win-x64-selfcontained.zip`** — bundles the .NET runtime. Larger download,
+  nothing to install first, just unzip and run `SyncOTP.exe`.
+- **`SyncOTP-<version>-win-x64-framework-dependent.zip`** — small download, but needs the
+  [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) installed already.
+
+Either way, unzip somewhere permanent (e.g. `%LOCALAPPDATA%\Programs\SyncOTP`) and run the exe.
+Updating is unzipping a newer release over the old one; config and logs live elsewhere and are
+untouched (see [Where things live](#where-things-live)).
+
+If you'd rather build from source, or are developing on the app, use `scripts/install.ps1` below.
+
 ## Setup
 
 1. **Pick a topic.** On the public server, a topic is created by publishing to it and the name is
@@ -22,9 +37,10 @@ Any ntfy server works: the public one at `ntfy.sh`, or your own.
    rather have real access control, run your own server or use a reserved topic on an ntfy paid
    plan, see [docs/ntfy-server.md](docs/ntfy-server.md), which covers both credentials and
    self-hosting.
-2. **PC.** Build and install. This compiles from source, so it needs the
-   [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0), installing the runtime alone
-   is not enough:
+2. **PC.** Either grab a prebuilt binary from the [Releases page](../../releases) (see
+   [Releases](#releases) above), or build and install from source. Building compiles from source,
+   so it needs the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0), installing the
+   runtime alone is not enough:
 
    ```powershell
    .\scripts\install.ps1 -Startup
