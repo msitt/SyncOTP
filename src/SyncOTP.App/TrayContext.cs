@@ -86,6 +86,8 @@ public sealed class TrayContext : ApplicationContext
             Checked = StartupRegistration.IsEnabled(),
         };
 
+        _menu.Items.Add(new ToolStripMenuItem($"SyncOTP v{AppVersion.Display}") { Enabled = false });
+        _menu.Items.Add(new ToolStripSeparator());
         _menu.Items.Add(_statusItem);
         _menu.Items.Add(new ToolStripSeparator());
         _menu.Items.Add(_historyItem);

@@ -36,7 +36,7 @@ internal static class Program
             e.SetObserved();
         };
 
-        FileLog.Info($"SyncOTP starting from {Environment.ProcessPath}");
+        FileLog.Info($"SyncOTP v{AppVersion.Display} starting from {Environment.ProcessPath}");
 
         try
         {
