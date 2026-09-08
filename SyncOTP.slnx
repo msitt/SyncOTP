@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/SyncOTP.App/SyncOTP.App.csproj" />
+    <Project Path="src/SyncOTP.Core/SyncOTP.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/SyncOTP.Core.Tests/SyncOTP.Core.Tests.csproj" />
+  </Folder>
+</Solution>

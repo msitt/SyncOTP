@@ -1,0 +1,46 @@
+# Reference ntfy server config for SyncOTP.
+#
+# This documents the settings SyncOTP depends on. Adjust to match your existing deployment
+# rather than replacing a working config wholesale.
+
+base-url: "https://ntfy.example.com"
+listen-http: ":80"
+
+# --- storage ------------------------------------------------------------------------------------
+
+# The cache is what lets the PC resume after a dropped connection: on reconnect SyncOTP asks for
+# everything "since" the last message id it handled. One hour is plenty, and keeping it short means
+# expired codes are not sitting on disk.
+cache-file: "/var/cache/ntfy/cache.db"
+cache-duration: "1h"
+
+# --- auth ---------------------------------------------------------------------------------------
+
+# The server is on the public internet, so nothing is readable or writable without credentials.
+auth-file: "/var/lib/ntfy/user.db"
+auth-default-access: "deny-all"
+
+# No self-service accounts on a private relay.
+enable-signup: false
+enable-login: true
+
+# --- behind Cloudflare Tunnel -------------------------------------------------------------------
+
+# cloudflared forwards to ntfy directly (no reverse proxy). This makes ntfy trust the
+# X-Forwarded-For header cloudflared sets, so rate limits apply per real client rather than
+# treating every request as coming from the tunnel.
+behind-proxy: true
+
+# Cloudflare closes a proxied connection that has been idle for 100 seconds. The keepalive is what
+# holds the subscription stream open, so it must stay comfortably under that. SyncOTP's watchdog
+# gives up after 90 seconds of silence and reconnects, which assumes this default.
+keepalive-interval: "45s"
+
+# A subscriber connection is meant to live indefinitely. Cloudflare will still recycle it
+# periodically; SyncOTP treats that as routine and resumes with ?since=<last id>.
+visitor-subscriber-rate-limiting: false
+
+# --- unused features ----------------------------------------------------------------------------
+
+# SyncOTP only publishes and subscribes over HTTP. Nothing below is needed.
+enable-metrics: false
