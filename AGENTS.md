@@ -88,10 +88,10 @@ changing the app version (see Release process below).
    fresh empty `## [Unreleased]` above it, matching the existing `CHANGELOG.md` format.
 2. **Roll the version.** Bump `<Version>` in [Directory.Build.props](Directory.Build.props) to the
    same `<version>`.
-3. **Commit and tag.** Commit both changes, then `git tag v<version>` and `git push --tags` (or
-   push the commit and tag together). Pushing a `v*` tag triggers
-   [`.github/workflows/release.yml`](.github/workflows/release.yml), which builds both the
-   self-contained and framework-dependent artifacts, extracts that version's section from
+3. **Commit and tag.** Commit both changes with subject `chore(release): v<version>`, then
+   `git tag v<version>` and `git push --tags` (or push the commit and tag together). Pushing a `v*`
+   tag triggers [`.github/workflows/release.yml`](.github/workflows/release.yml), which builds both
+   the self-contained and framework-dependent artifacts, extracts that version's section from
    `CHANGELOG.md` for the release body, and publishes the GitHub Release with both zips attached.
 
 The tag's version must exactly match the `Directory.Build.props` version and the `CHANGELOG.md`
