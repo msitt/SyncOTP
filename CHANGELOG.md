@@ -6,6 +6,13 @@ All notable changes to SyncOTP are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-09-09
+
+### Added
+
+- App version is now shown at startup (log) and as a non-clickable entry at the top of the tray
+  menu
+
 ### Fixed
 
 - Logged exceptions now include the full stack trace
