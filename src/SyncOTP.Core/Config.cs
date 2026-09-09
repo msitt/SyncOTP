@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -64,12 +65,48 @@ public sealed class ExtractorConfig
     public bool AcceptLowConfidence { get; set; } = true;
 }
 
+public sealed class UpdatesConfig
+{
+    /// <summary>Check for a newer release shortly after startup, and every interval after that.</summary>
+    public bool CheckAutomatically { get; set; } = true;
+
+    /// <summary>Download a newer release as soon as it is found, rather than waiting for the menu.</summary>
+    public bool DownloadAutomatically { get; set; } = false;
+
+    public int CheckIntervalHours { get; set; } = 24;
+
+    /// <summary>Offer prereleases. Off by default: tagged releases are the tested path.</summary>
+    public bool AllowPreRelease { get; set; } = false;
+
+    /// <summary>Round-trip UTC timestamp of the last successful check. Maintained by the app.</summary>
+    public string LastCheckUtc { get; set; } = "";
+
+    /// <summary>Newest version seen on the release host. Maintained by the app.</summary>
+    public string LastSeenVersion { get; set; } = "";
+
+    /// <summary>
+    /// The last check, or null when there has never been one. A value that cannot be parsed is
+    /// treated as "never", so a hand-edited typo costs one extra check instead of throwing.
+    /// </summary>
+    [JsonIgnore]
+    public DateTimeOffset? LastCheck =>
+        DateTimeOffset.TryParse(LastCheckUtc, CultureInfo.InvariantCulture,
+            DateTimeStyles.RoundtripKind, out var parsed)
+            ? parsed
+            : null;
+
+    /// <summary>Clamped, so nobody sets checkIntervalHours to 0 and hammers the release host.</summary>
+    [JsonIgnore]
+    public TimeSpan Interval => TimeSpan.FromHours(Math.Clamp(CheckIntervalHours, 1, 24 * 30));
+}
+
 public sealed class Config
 {
     public NtfyConfig Ntfy { get; set; } = new();
     public ClipboardConfig Clipboard { get; set; } = new();
     public NotificationConfig Notifications { get; set; } = new();
     public ExtractorConfig Extractor { get; set; } = new();
+    public UpdatesConfig Updates { get; set; } = new();
 
     /// <summary>Writes whole message bodies to the log. Off by default: bodies contain the codes.</summary>
     public bool VerboseLogging { get; set; } = false;
@@ -142,6 +179,30 @@ public sealed class Config
         catch (Exception ex)
         {
             FileLog.Debug($"could not persist lastId: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Persists only the update-check bookkeeping. Same rule as <see cref="SaveLastId"/>: re-read
+    /// the file first, so a config the user is editing by hand is not clobbered.
+    /// </summary>
+    public void SaveUpdateState(DateTimeOffset checkedAtUtc, string lastSeenVersion)
+    {
+        var stamp = checkedAtUtc.ToUniversalTime().ToString("o", CultureInfo.InvariantCulture);
+
+        Updates.LastCheckUtc = stamp;
+        Updates.LastSeenVersion = lastSeenVersion;
+
+        try
+        {
+            var onDisk = Load(out _);
+            onDisk.Updates.LastCheckUtc = stamp;
+            onDisk.Updates.LastSeenVersion = lastSeenVersion;
+            onDisk.Save();
+        }
+        catch (Exception ex)
+        {
+            FileLog.Debug($"could not persist the update check state: {ex.Message}");
         }
     }
 }

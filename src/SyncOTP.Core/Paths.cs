@@ -15,6 +15,12 @@ public static class Paths
 
     public static string LogDir => Path.Combine(DataDir, "logs");
 
+    /// <summary>Staging for a downloaded release. Created on demand, not by EnsureCreated.</summary>
+    public static string UpdateDir => Path.Combine(DataDir, "updates");
+
+    /// <summary>Written by the update helper script, so a failed update is diagnosable.</summary>
+    public static string UpdateLogFile => Path.Combine(LogDir, "update.log");
+
     public static void EnsureCreated()
     {
         Directory.CreateDirectory(ConfigDir);
