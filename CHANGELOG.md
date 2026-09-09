@@ -6,6 +6,10 @@ All notable changes to SyncOTP are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Logged exceptions now include the full stack trace
+
 ## [0.1.0] - 2026-09-07
 
 ### Added

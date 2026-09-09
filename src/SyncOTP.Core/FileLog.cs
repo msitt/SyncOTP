@@ -26,7 +26,7 @@ public static class FileLog
     public static void Info(string m) => Write(LogLevel.Info, m);
     public static void Warn(string m) => Write(LogLevel.Warn, m);
     public static void Error(string m, Exception? ex = null) =>
-        Write(LogLevel.Error, ex is null ? m : $"{m}: {ex.GetType().Name}: {ex.Message}");
+        Write(LogLevel.Error, ex is null ? m : $"{m}: {ex}");
 
     private static void Write(LogLevel level, string message)
     {
