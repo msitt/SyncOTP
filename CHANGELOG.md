@@ -6,6 +6,11 @@ All notable changes to SyncOTP are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Exiting from the tray menu no longer crashes with a NullReferenceException while the ntfy
+  source reports itself stopped
+
 ## [0.1.1] - 2026-09-09
 
 ### Added

@@ -26,6 +26,7 @@ public sealed class TrayContext : ApplicationContext
     private NtfySource? _source;
     private CancellationTokenSource _sourceCts = new();
     private bool _paused;
+    private bool _exiting;
 
     private ToolStripMenuItem _statusItem = null!;
     private ToolStripMenuItem _historyItem = null!;
@@ -181,7 +182,10 @@ public sealed class TrayContext : ApplicationContext
 
     private void OnMessage(IncomingMessage message)
     {
-        _uiThread.BeginInvoke(() => ProcessMessage(message));
+        _uiThread.BeginInvoke(() =>
+        {
+            if (!_exiting) ProcessMessage(message);
+        });
     }
 
     private void ProcessMessage(IncomingMessage message)
@@ -354,6 +358,12 @@ public sealed class TrayContext : ApplicationContext
 
     private void StopSource()
     {
+        if (_source is not null)
+        {
+            _source.MessageReceived -= OnMessage;
+            _source.StateChanged -= OnSourceState;
+        }
+
         try
         {
             _sourceCts.Cancel();
@@ -369,6 +379,8 @@ public sealed class TrayContext : ApplicationContext
 
     private void UpdateIcon()
     {
+        if (_exiting) return;
+
         var status = _source?.State.Status ?? SourceStatus.Stopped;
 
         _trayIcon.Icon = _paused
@@ -391,6 +403,7 @@ public sealed class TrayContext : ApplicationContext
     private void ExitApp()
     {
         FileLog.Info("exiting");
+        _exiting = true;
         StopSource();
 
         // Leaving a code on the clipboard after the app is gone would defeat the auto-clear.
