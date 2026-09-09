@@ -200,14 +200,14 @@ public sealed class TrayContext : ApplicationContext
 
         if (_paused)
         {
-            FileLog.Info($"message {origin} ignored: SyncOTP is paused");
+            FileLog.Debug($"message {origin} ignored: SyncOTP is paused");
             return;
         }
 
         var extracted = _extractor.Extract(message.Text);
         if (extracted is null)
         {
-            FileLog.Info($"no code found in a {message.Text.Length}-character message {origin}");
+            FileLog.Debug($"no code found in a {message.Text.Length}-character message {origin}");
             return;
         }
 
