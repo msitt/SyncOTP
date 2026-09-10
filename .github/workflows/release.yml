@@ -90,11 +90,14 @@ jobs:
           $body = "See CHANGELOG.md for details."
           if ($start) {
             $rest = $lines[$start..($lines.Length - 1)]
+            # LineNumber is 1-based over the skipped sequence, so it indexes the next version's
+            # heading in $rest. Stop one short of it, or the notes end with the heading of the
+            # release before this one.
             $endOffset = ($rest | Select-Object -Skip 1 | Select-String -Pattern "^## \[").LineNumber
             if ($endOffset) {
-              $body = ($rest[0..$endOffset] -join "`n")
+              $body = ($rest[0..($endOffset - 1)] -join "`n").TrimEnd()
             } else {
-              $body = ($rest -join "`n")
+              $body = ($rest -join "`n").TrimEnd()
             }
           }
           $body | Out-File -FilePath release-notes.md -Encoding utf8
