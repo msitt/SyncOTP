@@ -6,6 +6,8 @@ All notable changes to SyncOTP are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-10
+
 ### Added
 
 - SyncOTP checks GitHub for a newer release shortly after startup and once a day after that, and
@@ -16,6 +18,12 @@ All notable changes to SyncOTP are documented here. The format follows
 - Releases now publish a `SHA256SUMS.txt`, and each zip carries a `release.json` recording which
   build it is
 - `SyncOTP.exe --version` prints the version and exits
+
+### Changed
+
+- `install.ps1` now asks a running SyncOTP to exit rather than killing it, so the clipboard is
+  still wiped on the way out. The stop, copy and relaunch sequence it shares with the updater
+  moved to `scripts/apply-payload.ps1`
 
 ### Fixed
 
