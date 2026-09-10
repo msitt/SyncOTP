@@ -18,10 +18,20 @@ internal static class Program
         if (args.Any(a => a.Equals("--print-auth-header", StringComparison.OrdinalIgnoreCase)))
             return PrintAuthHeader(config);
 
+        // Proof that this build actually starts on this machine. The updater runs it against a
+        // freshly extracted exe before it is willing to overwrite a working install, which is how a
+        // missing runtime turns into a declined update instead of a tray icon that never comes
+        // back. It must stay inert, and it must run before the mutex or that check deadlocks
+        // against the very instance asking the question.
+        if (args.Any(a => a.Equals("--version", StringComparison.OrdinalIgnoreCase)))
+            return PrintVersion();
+
+        var afterUpdate = args.Any(a => a.Equals("--updated", StringComparison.OrdinalIgnoreCase));
+
         using var mutex = new Mutex(initiallyOwned: true, MutexName, out var isFirstInstance);
-        if (!isFirstInstance)
+        if (!isFirstInstance && !TryAcquire(mutex, afterUpdate))
         {
-            FileLog.Info("another instance is already running; exiting");
+            FileLog.Info("another instance is already running, exiting");
             return 0;
         }
 
@@ -37,6 +47,7 @@ internal static class Program
         };
 
         FileLog.Info($"SyncOTP v{AppVersion.Display} starting from {Environment.ProcessPath}");
+        if (afterUpdate) FileLog.Info($"updated to v{AppVersion.Display}");
 
         try
         {
@@ -48,6 +59,42 @@ internal static class Program
             return 1;
         }
 
+        return 0;
+    }
+
+    /// <summary>
+    /// An update relaunches the app the moment the old process exits, and the mutex is not released
+    /// until that process is fully gone. Without a short retry the new instance would decide it was
+    /// a duplicate and vanish, leaving the user with no app and nothing in the log to explain it.
+    /// </summary>
+    private static bool TryAcquire(Mutex mutex, bool afterUpdate)
+    {
+        // A normal second launch keeps its old behaviour of giving up immediately.
+        var attempts = afterUpdate ? 10 : 1;
+        var timeout = afterUpdate ? TimeSpan.FromMilliseconds(300) : TimeSpan.Zero;
+
+        for (var attempt = 0; attempt < attempts; attempt++)
+        {
+            try
+            {
+                if (mutex.WaitOne(timeout)) return true;
+            }
+            catch (AbandonedMutexException)
+            {
+                // The previous instance died without releasing it, so it is ours now.
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Writes the version to stdout and quits, without starting the app.</summary>
+    private static int PrintVersion()
+    {
+        NativeMethods.AttachParentConsole();
+        Console.WriteLine(AppVersion.Display);
+        Console.Out.Flush();
         return 0;
     }
 

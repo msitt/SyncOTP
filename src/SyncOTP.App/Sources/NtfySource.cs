@@ -35,12 +35,8 @@ public sealed class NtfySource : IMessageSource
     public NtfySource(Config config)
     {
         _config = config;
-        _http = new HttpClient
-        {
-            // The stream never completes on its own, so the client must not impose a timeout.
-            Timeout = Timeout.InfiniteTimeSpan,
-        };
-        _http.DefaultRequestHeaders.UserAgent.ParseAdd("SyncOTP/1.0");
+        // The stream never completes on its own, so the client must not impose a timeout.
+        _http = HttpClients.CreateStreaming();
     }
 
     public async Task StartAsync(CancellationToken cancellationToken)

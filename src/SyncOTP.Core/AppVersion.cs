@@ -13,6 +13,10 @@ public static class AppVersion
 
     private static string Resolve()
     {
+        // This is SyncOTP.Core, not the app. It reports the same number only because
+        // Directory.Build.props covers every project in the tree and -p:Version= on a publish
+        // propagates to project references. The updater compares this against a release tag, so
+        // keep the version in Directory.Build.props and never per-project.
         var assembly = Assembly.GetExecutingAssembly();
         var informational = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
 

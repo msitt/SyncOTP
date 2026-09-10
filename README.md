@@ -18,8 +18,12 @@ Prebuilt binaries are on the [Releases page](../../releases). Each release has t
   [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) installed already.
 
 Either way, unzip somewhere permanent (e.g. `%LOCALAPPDATA%\Programs\SyncOTP`) and run the exe.
-Updating is unzipping a newer release over the old one; config and logs live elsewhere and are
-untouched (see [Where things live](#where-things-live)).
+
+After that SyncOTP keeps itself up to date: it checks GitHub shortly after startup and once a day,
+and offers the update from the tray menu. It downloads whichever zip matches the copy you installed,
+checks it, and swaps it in when you restart. Config and logs live elsewhere and are never touched
+(see [Where things live](#where-things-live)). Unzipping a newer release over the old one still
+works, and is what you want if you are moving between the two flavors.
 
 If you'd rather build from source, or are developing on the app, use `scripts/install.ps1` below.
 
@@ -116,6 +120,14 @@ service is missed, add it to the corpus and adjust from there.
   "extractor": {
     "acceptLowConfidence": true
   },
+  "updates": {
+    "checkAutomatically": true,
+    "downloadAutomatically": false,
+    "checkIntervalHours": 24,
+    "allowPreRelease": false,
+    "lastCheckUtc": "",
+    "lastSeenVersion": ""
+  },
   "verboseLogging": false,
   "messageSnippetChars": 120
 }
@@ -126,6 +138,16 @@ HTTP Basic auth on every request. `autoClearSeconds: 0` disables the wipe. `last
 cursor and is maintained by the app.
 `verboseLogging` writes whole message bodies to the log, which means the codes themselves, so leave
 it off unless you are debugging a message that was not detected.
+
+`updates.checkAutomatically: false` turns update checking off completely, leaving only the tray's
+**Check for updates**. `downloadAutomatically` fetches an update as soon as one is found instead of
+waiting for you to pick it from the menu. Either way nothing is installed until you choose to
+restart. `checkIntervalHours` is clamped to at least one hour. `lastCheckUtc` and `lastSeenVersion`
+are maintained by the app.
+
+SyncOTP will not update itself when it is running from a build output directory, from under
+`Program Files`, or from anywhere it cannot write. In those cases the tray still tells you a new
+version exists and links to the release page.
 
 `messageSnippetChars` is how much of the message text is shown in the log line and the toast. The
 sender an SMS gateway reports is usually an anonymous five-digit short code, so the body is what
@@ -138,9 +160,16 @@ tells you which service the code is for. Set it to `0` to leave the text out.
 | Executable | `%LOCALAPPDATA%\Programs\SyncOTP\SyncOTP.exe` |
 | Config | `%APPDATA%\SyncOTP\config.json` |
 | Logs | `%LOCALAPPDATA%\SyncOTP\logs\` |
+| Update staging and backup | `%LOCALAPPDATA%\SyncOTP\updates\` |
 | Startup entry | `HKCU\Software\Microsoft\Windows\CurrentVersion\Run\SyncOTP` |
 
-Re-running `install.ps1` is the update path and leaves config and logs alone.
+Updates are applied by `apply-payload.ps1`, which ships next to the exe and writes what it did to
+`%LOCALAPPDATA%\SyncOTP\logs\update.log`. It keeps a copy of the version it replaced in
+`updates\backup`, so if a new build will not start you can copy that back over the install
+directory by hand.
+
+Building from source with `install.ps1` is still a supported update path and leaves config and logs
+alone.
 
 ## Security
 

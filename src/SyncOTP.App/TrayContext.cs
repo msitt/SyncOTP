@@ -2,6 +2,7 @@ using System.Diagnostics;
 using SyncOTP.App.Output;
 using SyncOTP.App.Setup;
 using SyncOTP.App.Sources;
+using SyncOTP.App.Updates;
 using SyncOTP.Core;
 
 namespace SyncOTP.App;
@@ -19,6 +20,7 @@ public sealed class TrayContext : ApplicationContext
     private readonly Notifier _notifier;
     private readonly CodeHistory _history = new();
     private readonly System.Windows.Forms.Timer _iconResetTimer;
+    private readonly ExitSignal _exitSignal;
 
     private Config _config;
     private CodeExtractor _extractor;
@@ -32,6 +34,12 @@ public sealed class TrayContext : ApplicationContext
     private ToolStripMenuItem _historyItem = null!;
     private ToolStripMenuItem _pauseItem = null!;
     private ToolStripMenuItem _startupItem = null!;
+    private ToolStripMenuItem _updateItem = null!;
+    private ToolStripMenuItem _checkUpdatesItem = null!;
+
+    private readonly UpdateService _updates;
+    private readonly System.Windows.Forms.Timer _updateTimer;
+    private bool _firstUpdateEvaluation = true;
 
     public TrayContext(Config config, bool configCreated)
     {
@@ -43,6 +51,13 @@ public sealed class TrayContext : ApplicationContext
         _uiThread.CreateControl();
 
         _clipboard = new ClipboardService(_uiThread);
+
+        // An installer or the updater asks for a clean exit rather than killing the process, so the
+        // clipboard still gets wiped on the way out.
+        _exitSignal = new ExitSignal(() => _uiThread.BeginInvoke(() =>
+        {
+            if (!_exiting) ExitApp();
+        }));
 
         _trayIcon = new NotifyIcon
         {
@@ -63,8 +78,15 @@ public sealed class TrayContext : ApplicationContext
             UpdateIcon();
         };
 
+        _updates = new UpdateService(_uiThread, config);
+        _updates.StateChanged += OnUpdateState;
+
+        _updateTimer = new System.Windows.Forms.Timer();
+        _updateTimer.Tick += (_, _) => OnUpdateTimerTick();
+
         BuildMenu();
         StartSource();
+        StartUpdateTimer();
 
         if (configCreated)
         {
@@ -87,7 +109,17 @@ public sealed class TrayContext : ApplicationContext
             Checked = StartupRegistration.IsEnabled(),
         };
 
+        _updateItem = new ToolStripMenuItem("Update", null, async (_, _) => await OnUpdateItemClickedAsync())
+        {
+            Visible = false,
+        };
+        _checkUpdatesItem = new ToolStripMenuItem("Check for updates", null,
+            async (_, _) => await _updates.CheckAsync(userInitiated: true));
+
         _menu.Items.Add(new ToolStripMenuItem($"SyncOTP v{AppVersion.Display}") { Enabled = false });
+
+        // Directly under the version, so the two read as one block.
+        _menu.Items.Add(_updateItem);
         _menu.Items.Add(new ToolStripSeparator());
         _menu.Items.Add(_statusItem);
         _menu.Items.Add(new ToolStripSeparator());
@@ -100,13 +132,19 @@ public sealed class TrayContext : ApplicationContext
         _menu.Items.Add(new ToolStripMenuItem("Open config", null, (_, _) => OpenConfig()));
         _menu.Items.Add(new ToolStripMenuItem("Reload config", null, (_, _) => ReloadConfig()));
         _menu.Items.Add(new ToolStripMenuItem("Open log", null, (_, _) => OpenLog()));
+        _menu.Items.Add(_checkUpdatesItem);
         _menu.Items.Add(_startupItem);
         _menu.Items.Add(new ToolStripSeparator());
         _menu.Items.Add(new ToolStripMenuItem("Exit", null, (_, _) => ExitApp()));
 
-        _menu.Opening += (_, _) => RefreshHistoryMenu();
+        _menu.Opening += (_, _) =>
+        {
+            RefreshHistoryMenu();
+            RefreshUpdateMenu();
+        };
 
         RefreshHistoryMenu();
+        RefreshUpdateMenu();
     }
 
     private void RefreshHistoryMenu()
@@ -124,6 +162,138 @@ public sealed class TrayContext : ApplicationContext
         {
             var code = entry.Code;
             _historyItem.DropDownItems.Add(new ToolStripMenuItem(entry.MenuLabel, null, (_, _) => CopyExisting(code)));
+        }
+    }
+
+    // ---- updates ------------------------------------------------------------------------------
+
+    private void StartUpdateTimer()
+    {
+        if (!_config.Updates.CheckAutomatically)
+        {
+            _updateTimer.Stop();
+            return;
+        }
+
+        ScheduleNextUpdateEvaluation();
+    }
+
+    private void ScheduleNextUpdateEvaluation()
+    {
+        var delay = _updates.NextDelay(DateTimeOffset.UtcNow, _firstUpdateEvaluation);
+        _firstUpdateEvaluation = false;
+
+        _updateTimer.Stop();
+        _updateTimer.Interval = (int)Math.Clamp(delay.TotalMilliseconds, 1000, int.MaxValue);
+        _updateTimer.Start();
+    }
+
+    private void OnUpdateTimerTick()
+    {
+        if (_exiting) return;
+
+        // The wall clock is re-read every tick rather than trusted to a single long interval,
+        // because a WinForms timer does not run while the machine is asleep.
+        if (_config.Updates.CheckAutomatically && _updates.IsCheckDue(DateTimeOffset.UtcNow))
+            _ = _updates.CheckAsync(userInitiated: false);
+
+        ScheduleNextUpdateEvaluation();
+    }
+
+    private void OnUpdateState(UpdateState state)
+    {
+        if (_exiting) return;
+
+        RefreshUpdateMenu();
+        UpdateIcon();
+
+        if (state.Status == UpdateStatus.Failed && state.Detail is not null)
+            FileLog.Debug($"update state: failed, {state.Detail}");
+    }
+
+    private void RefreshUpdateMenu()
+    {
+        var state = _updates.State;
+        var version = state.Version is null ? "" : $"v{state.Version}";
+
+        (string text, bool enabled, bool visible) = state.Status switch
+        {
+            UpdateStatus.Checking => ("Checking for updates…", false, true),
+            UpdateStatus.UpToDate => ("SyncOTP is up to date", false, true),
+            UpdateStatus.Available => ($"Update to {version}", true, true),
+            UpdateStatus.Downloading => ($"Downloading {version}… {state.Progress:P0}", false, true),
+            UpdateStatus.ReadyToRestart => ($"Restart to finish updating to {version}", true, true),
+            UpdateStatus.Blocked => ($"Update to {version} available", true, true),
+            UpdateStatus.Failed => ("Update failed, see the log", true, true),
+            _ => ("", false, false),
+        };
+
+        _updateItem.Text = text;
+        _updateItem.Enabled = enabled;
+        _updateItem.Visible = visible;
+        _updateItem.ToolTipText = state.Detail ?? "";
+
+        _checkUpdatesItem.Enabled = state.Status is not (UpdateStatus.Checking or UpdateStatus.Downloading);
+    }
+
+    private async Task OnUpdateItemClickedAsync()
+    {
+        switch (_updates.State.Status)
+        {
+            case UpdateStatus.Available:
+                await _updates.DownloadAsync();
+                break;
+
+            case UpdateStatus.ReadyToRestart:
+                ApplyUpdate();
+                break;
+
+            case UpdateStatus.Blocked:
+                _updates.OpenReleasePage();
+                break;
+
+            case UpdateStatus.Failed:
+                // A failed apply is written by the applier process, not by us, so the interesting
+                // detail is in a different file from everything else.
+                if (_updates.State.FailedPhase == UpdatePhase.Apply) OpenUpdateLog();
+                else OpenLog();
+                break;
+        }
+    }
+
+    /// <summary>
+    /// The only path that installs an update. A plain Exit deliberately does not: exit means go
+    /// away, and swapping binaries on the way out would be a surprise. The staged payload survives
+    /// and is offered again on the next start, with no network call.
+    /// </summary>
+    private void ApplyUpdate()
+    {
+        if (!_updates.LaunchApplier())
+        {
+            RefreshUpdateMenu();
+            _notifier.ShowWarning("Could not start the update", "See the log for details.");
+            return;
+        }
+
+        // The applier waits for this process to exit before it touches anything.
+        ExitApp();
+    }
+
+    private void OpenUpdateLog()
+    {
+        try
+        {
+            if (!File.Exists(Paths.UpdateLogFile))
+            {
+                OpenLog();
+                return;
+            }
+
+            Process.Start(new ProcessStartInfo(Paths.UpdateLogFile) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            FileLog.Error("could not open the update log", ex);
         }
     }
 
@@ -353,6 +523,13 @@ public sealed class TrayContext : ApplicationContext
         FileLog.MinLevel = _config.VerboseLogging ? Core.LogLevel.Debug : Core.LogLevel.Info;
 
         StartSource();
+
+        // A staged download stays valid across a reload, so the update state is deliberately left
+        // alone. Only the schedule is re-read.
+        _updates.ApplyConfig(_config);
+        _firstUpdateEvaluation = true;
+        StartUpdateTimer();
+
         _notifier.ShowInfo("SyncOTP", "Configuration reloaded.");
     }
 
@@ -383,7 +560,7 @@ public sealed class TrayContext : ApplicationContext
 
         var status = _source?.State.Status ?? SourceStatus.Stopped;
 
-        _trayIcon.Icon = _paused
+        var icon = _paused
             ? TrayIcons.Paused
             : status switch
             {
@@ -392,9 +569,20 @@ public sealed class TrayContext : ApplicationContext
                 _ => TrayIcons.Paused,
             };
 
+        var updatePending = _updates.State.Status
+            is UpdateStatus.Available or UpdateStatus.ReadyToRestart or UpdateStatus.Blocked;
+
+        _trayIcon.Icon = updatePending ? TrayIcons.WithUpdateBadge(icon) : icon;
+
         var latest = _history.Latest();
-        var suffix = latest is null ? "" : $", last code {latest.Code}";
-        _trayIcon.Text = Truncate(_paused ? "SyncOTP, paused" : $"SyncOTP{suffix}");
+
+        // Both suffixes together would run past the 63-character limit, and the update is the
+        // rarer, more actionable thing to say.
+        var suffix = updatePending
+            ? ", update available"
+            : latest is null ? "" : $", last code {latest.Code}";
+
+        _trayIcon.Text = Truncate(_paused ? $"SyncOTP, paused{(updatePending ? ", update available" : "")}" : $"SyncOTP{suffix}");
     }
 
     /// <summary>NotifyIcon.Text throws above 63 characters.</summary>
@@ -404,11 +592,14 @@ public sealed class TrayContext : ApplicationContext
     {
         FileLog.Info("exiting");
         _exiting = true;
+        _updateTimer.Stop();
+        _updates.CancelPendingWork();
         StopSource();
 
         // Leaving a code on the clipboard after the app is gone would defeat the auto-clear.
         _clipboard.ClearIfUnchanged();
 
+        _exitSignal.Dispose();
         _trayIcon.Visible = false;
         _trayIcon.Dispose();
         Notifier.Cleanup();
@@ -421,6 +612,9 @@ public sealed class TrayContext : ApplicationContext
         if (disposing)
         {
             _iconResetTimer.Dispose();
+            _updateTimer.Dispose();
+            _updates.Dispose();
+            _exitSignal.Dispose();
             _menu.Dispose();
             _uiThread.Dispose();
         }

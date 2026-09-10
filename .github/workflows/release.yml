@@ -51,6 +51,19 @@ jobs:
           -p:Version=${{ steps.version.outputs.version }}
           -o artifacts\publish-framework
 
+      - name: Stamp release marker
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          @(
+            @{ dir = 'artifacts\publish-selfcontained'; flavor = 'selfcontained' },
+            @{ dir = 'artifacts\publish-framework';     flavor = 'framework-dependent' }
+          ) | ForEach-Object {
+            [ordered]@{ flavor = $_.flavor; version = $version; installedBy = 'release' } |
+              ConvertTo-Json |
+              Out-File -FilePath (Join-Path $_.dir 'release.json') -Encoding utf8
+          }
+
       - name: Zip artifacts
         shell: pwsh
         run: |
@@ -59,6 +72,13 @@ jobs:
             -DestinationPath "SyncOTP-$version-win-x64-selfcontained.zip"
           Compress-Archive -Path artifacts\publish-framework\* `
             -DestinationPath "SyncOTP-$version-win-x64-framework-dependent.zip"
+
+      - name: Checksums
+        shell: pwsh
+        run: |
+          Get-FileHash -Algorithm SHA256 SyncOTP-*.zip |
+            ForEach-Object { "{0}  {1}" -f $_.Hash.ToLower(), (Split-Path $_.Path -Leaf) } |
+            Out-File -FilePath SHA256SUMS.txt -Encoding ascii
 
       - name: Extract changelog section
         id: changelog
@@ -85,3 +105,4 @@ jobs:
           body_path: release-notes.md
           files: |
             SyncOTP-*.zip
+            SHA256SUMS.txt

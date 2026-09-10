@@ -4,6 +4,7 @@
     <Project Path="src/SyncOTP.Core/SyncOTP.Core.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/SyncOTP.App.Tests/SyncOTP.App.Tests.csproj" />
     <Project Path="tests/SyncOTP.Core.Tests/SyncOTP.Core.Tests.csproj" />
   </Folder>
 </Solution>

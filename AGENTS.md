@@ -37,7 +37,7 @@ config/logs):
 
 ## Architecture
 
-Two projects plus tests, referenced from [SyncOTP.slnx](SyncOTP.slnx):
+Two projects plus a test project each, referenced from [SyncOTP.slnx](SyncOTP.slnx):
 
 - **`src/SyncOTP.Core`** holds extraction, dedup, config, logging, and paths. No UI, no I/O beyond
   the filesystem, fully unit-testable. `CodeExtractor` is the core algorithm: mask spans that are
@@ -51,7 +51,29 @@ Two projects plus tests, referenced from [SyncOTP.slnx](SyncOTP.slnx):
   (`NtfySource` is the only implementation), so a second transport is a new class plus a config
   block, not a change to the pipeline. `Output/` holds `ClipboardService` (marshals onto a hidden
   control's UI thread, flags clipboard entries out of history/roaming), `Notifier` (toast, falls
-  back to a tray balloon), and `CodeHistory` (last five codes for the tray menu).
+  back to a tray balloon), and `CodeHistory` (last five codes for the tray menu). `Updates/` holds
+  the self-updater.
+
+The updater is split the same way everything else is. `SyncOTP.Core` owns the parts that are pure
+functions of their inputs and therefore testable: `ReleaseVersion` (SemVer parse and compare,
+failing closed so an unreadable version is never offered), `ReleaseAssetPicker` (which of a
+release's zips matches this install), `UpdateSchedule` (when a check is due, taking `now` as a
+parameter the way `MessageDeduper` does), and `InstallMarker` (reads the `release.json` that ships
+beside the exe). `SyncOTP.App/Updates/` owns everything that touches the world: `InstallLocation`
+(where we are, which flavor, and whether we may overwrite ourselves), `GitHubReleaseClient` (the
+API and the download), `UpdatePayload` (seven checks between a downloaded zip and a payload we are
+willing to install), and `UpdateService` (the state machine the tray binds to).
+
+The swap itself is [scripts/apply-payload.ps1](scripts/apply-payload.ps1), shared with
+`install.ps1` and shipped next to the exe so it is inside both release zips. A running exe cannot
+overwrite itself, so the app launches the script and exits, and the script waits for the process to
+go away before touching anything. `install.ps1` lets it force-kill a stubborn instance because the
+user asked for an install. The updater does not, because an app that will not exit is an app
+somebody is still using. Changes there are hard to test after the fact and easy to get wrong, so
+prefer adding to `UpdatePayload` (which has tests) over adding to the script.
+
+`tests/SyncOTP.App.Tests` exists specifically so the updater's dangerous parts are covered. Nothing
+in it needs a network.
 
 Pipeline, end to end: `NtfySource` receives a message, `TrayContext.OnMessage` marshals it onto
 the UI thread, `MessageDeduper` filters repeats, `CodeExtractor` pulls a code (or bails), a
