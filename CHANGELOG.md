@@ -6,6 +6,8 @@ All notable changes to SyncOTP are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-10-12
+
 ### Fixed
 
 - Codes written with a leading `#` right after a code word, such as "Your password is #123456",
