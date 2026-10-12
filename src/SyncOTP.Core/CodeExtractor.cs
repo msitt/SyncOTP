@@ -59,8 +59,11 @@ public sealed partial class CodeExtractor
     [GeneratedRegex(@"\b\d{1,4}[/-]\d{1,2}([/-]\d{2,4})?\b", RegexOptions.CultureInvariant)]
     private static partial Regex DateRegex();
 
-    /// <summary>Order / reference / account numbers: "#48213", "order 48213", "ending in 4821".</summary>
-    [GeneratedRegex(@"#\s?\d+|\b(order|ref|reference|invoice|ticket|acct|account|case|tracking)\s*#?\s*\d+|ending in\s*\d+|x{2,}\d+",
+    /// <summary>
+    /// Order / reference / account numbers: "#48213", "order 48213", "ending in 4821". A bare "#"
+    /// right after a code word ("Your password is #123456") is a code, not a reference.
+    /// </summary>
+    [GeneratedRegex(@"(?<!(code|otp|pin|password|passcode)\s*(is|:|=)?\s*)#\s?\d+|\b(order|ref|reference|invoice|ticket|acct|account|case|tracking)\s*#?\s*\d+|ending in\s*\d+|x{2,}\d+",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex ReferenceRegex();
 

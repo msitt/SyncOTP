@@ -26,6 +26,7 @@ public class CodeExtractorTests
     [InlineData("Your Steam code is K4T2M", "K4T2M")]
     [InlineData("Verification code: 2947156", "2947156")]
     [InlineData("Your security code is 8471. It expires in 5 minutes. Reply STOP to 22395 to opt out.", "8471")]
+    [InlineData("American Family Insurance Your password is #123456", "123456")]
     public void ExtractsTheCode(string message, string expected)
     {
         var result = _extractor.Extract(message);
