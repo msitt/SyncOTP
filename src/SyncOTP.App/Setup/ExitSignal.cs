@@ -23,10 +23,19 @@ public sealed class ExitSignal : IDisposable
     /// message sources do.
     /// </param>
     public ExitSignal(Action onRequested)
+        : this(onRequested, EventName)
+    {
+    }
+
+    /// <param name="eventName">
+    /// Overrides <see cref="EventName"/>. Tests use a name of their own, because the real one is
+    /// shared with any installed copy that is running, and signalling it would close that copy.
+    /// </param>
+    public ExitSignal(Action onRequested, string eventName)
     {
         try
         {
-            _handle = new EventWaitHandle(false, EventResetMode.AutoReset, EventName);
+            _handle = new EventWaitHandle(false, EventResetMode.AutoReset, eventName);
 
             // Discard anything already latched on the event. A named event outlives the process
             // that signalled it, and the initial state is ignored when the handle already exists,
