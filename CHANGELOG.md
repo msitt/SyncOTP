@@ -6,6 +6,8 @@ All notable changes to SyncOTP are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-11-06
+
 ### Security
 
 - Built with .NET SDK 10.0.403, so the self-contained release now bundles the .NET 10.0.14 runtime
