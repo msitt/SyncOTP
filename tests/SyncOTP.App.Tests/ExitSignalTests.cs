@@ -16,7 +16,7 @@ public class ExitSignalTests
         using var handle = EventWaitHandle.OpenExisting(ExitSignal.EventName);
         handle.Set();
 
-        Assert.True(fired.Wait(TimeSpan.FromSeconds(5)));
+        Assert.True(fired.Wait(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -65,7 +65,7 @@ public class ExitSignalTests
         Assert.False(fired.IsSet);
 
         stale.Set();
-        Assert.True(fired.Wait(TimeSpan.FromSeconds(5)));
+        Assert.True(fired.Wait(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken));
     }
 
     [Fact]

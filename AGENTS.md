@@ -17,11 +17,13 @@ dotnet test
 dotnet run --project src\SyncOTP.App
 ```
 
-Run a single test class or method with xunit's filter:
+Tests use xunit.v3 on Microsoft.Testing.Platform (opted in via the `test` block in
+[global.json](global.json)), so VSTest options like `--filter` and `--logger` don't apply. Run a
+single test class or method with xunit's own filters (wildcards match the fully qualified name):
 
 ```powershell
-dotnet test --filter "FullyQualifiedName~CodeExtractorTests"
-dotnet test --filter "FullyQualifiedName~CodeExtractorTests.SomeSpecificTest"
+dotnet test --filter-class "*CodeExtractorTests"
+dotnet test --filter-method "*CodeExtractorTests.SomeSpecificTest"
 ```
 
 CI (`dotnet restore --locked-mode`) requires the `packages.lock.json` files to match `*.csproj`
